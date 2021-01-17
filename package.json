@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "author": "Brad Kovach",
   "bin": {
-    "task-man": "./bin/run"
+    "taskman": "bin/run"
   },
   "bugs": "https://github.com/bradkovach/task-man/issues",
   "dependencies": {
