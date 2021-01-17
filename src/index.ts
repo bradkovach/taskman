@@ -1,160 +1,29 @@
-import { Command, flags } from '@oclif/command';
-import chalk = require('chalk');
+import { Command } from '@oclif/command';
+
+import chalk from 'chalk';
+import cli from 'cli-ux';
 import * as nodeThermalPrinter from 'node-thermal-printer';
 
-import cli from 'cli-ux';
+import {
+	AppendCommand,
+	BoldCommand,
+	CenterCommand,
+	CutCommand,
+	LeftRightCommand,
+	LinkCommand,
+	NewLineCommand,
+	NoopCommand,
+	PrinterCommand,
+	PrintLineCommand,
+	QrCodeCommand,
+	RuleCommand,
+	TitleCommand,
+	UnderlineCommand,
+} from './commands';
 import { lexer } from './lex';
-import { Console } from 'console';
-
-const epsonConfig = require('node-thermal-printer/lib/types/epson-config.js');
 
 interface Stringable {
 	toString(): string;
-}
-
-abstract class PrinterCommand {
-	constructor() {}
-	public abstract print(printer: nodeThermalPrinter.printer): void;
-}
-
-abstract class ControlCommand extends PrinterCommand {}
-
-abstract class DataCommand extends ControlCommand {
-	constructor(public data: string) {
-		super();
-	}
-}
-
-class ExecuteCommand extends ControlCommand {
-	public print(printer: nodeThermalPrinter.printer): void {
-		printer.execute();
-	}
-}
-
-class NewLineCommand extends ControlCommand {
-	public print(printer: nodeThermalPrinter.printer): void {
-		printer.newLine();
-	}
-}
-
-class CutCommand extends ControlCommand {
-	public print(printer: nodeThermalPrinter.printer): void {
-		printer.cut();
-	}
-}
-
-class NoopCommand extends ControlCommand {
-	public print(printer: nodeThermalPrinter.printer): void {}
-}
-
-class AppendCommand extends DataCommand {
-	print(printer: nodeThermalPrinter.printer) {
-		printer.append(this.data);
-	}
-}
-
-class PrintLineCommand extends DataCommand {
-	print(printer: nodeThermalPrinter.printer) {
-		printer.println(this.data);
-	}
-}
-
-class Code128Command extends DataCommand {
-	print(printer: nodeThermalPrinter.printer) {
-		// will throw an error
-		// printer.code128(this.data);
-		printer.printBarcode(this.data);
-	}
-}
-
-class Code39Command extends DataCommand {
-	print(printer: nodeThermalPrinter.printer) {
-		printer.printBarcode(
-			this.data,
-			(Buffer.from([0x1d, 0x6b, 0x04]) as unknown) as number
-		);
-	}
-}
-
-class QrCodeCommand extends DataCommand {
-	print(printer: nodeThermalPrinter.printer) {
-		printer.drawLine();
-		printer.printQR(this.data);
-		printer.print(this.data);
-		printer.drawLine();
-	}
-}
-
-class Pdf417Command extends DataCommand {
-	print(printer: nodeThermalPrinter.printer) {
-		printer.pdf417(this.data);
-	}
-}
-
-class LinkCommand extends DataCommand {
-	constructor(public linkText: string, public url: string) {
-		super(url);
-	}
-	public print(printer: nodeThermalPrinter.printer): void {
-		printer.printQR(this.url);
-		printer.bold(true);
-		printer.println(this.linkText);
-		printer.bold(false);
-		printer.println(this.url);
-	}
-}
-class TitleCommand extends DataCommand {
-	print(printer: nodeThermalPrinter.printer) {
-		printer.setTextQuadArea();
-		printer.println(this.data);
-		printer.setTextNormal();
-	}
-}
-
-class BoldCommand extends DataCommand {
-	print(printer: nodeThermalPrinter.printer) {
-		printer.bold(true);
-		printer.append(this.data);
-		printer.bold(false);
-	}
-}
-
-class LeftRightCommand extends DataCommand {
-	constructor(public left: string, public right: string) {
-		super(left);
-	}
-
-	public print(printer: nodeThermalPrinter.printer): void {
-		printer.leftRight(this.left, this.right);
-	}
-}
-
-class UnderlineCommand extends DataCommand {
-	print(printer: nodeThermalPrinter.printer) {
-		printer.underline(true);
-		printer.append(this.data);
-		printer.underline(false);
-	}
-}
-
-class RuleCommand extends ControlCommand {
-	constructor(public appendNewLine: boolean = false ) {
-		super();
-	}
-	print(printer: nodeThermalPrinter.printer) {
-		const width = printer.getWidth();
-		printer.append( '-'.repeat(width) );
-		if( this.appendNewLine ) {
-			printer.newLine();
-		}
-	}
-}
-class CenterCommand extends DataCommand {
-	print(printer: nodeThermalPrinter.printer) {
-		printer.alignCenter();
-		printer.println(this.data);
-		printer.alignLeft();
-	}
 }
 
 class TaskMan extends Command {
@@ -163,6 +32,10 @@ class TaskMan extends Command {
 	static flags = {};
 
 	static args = [];
+
+	prepend(input: Stringable): string {
+		return `${' '.repeat(4)}${input.toString()}`;
+	}
 
 	async run() {
 		console.log(`Welcome to ${chalk.bold.green('TaskMan')}!`);
@@ -178,14 +51,13 @@ class TaskMan extends Command {
 
 		try {
 			console.log(`Connecting to ${chalk.bold.white(ip)}...`);
-			let isConnected = await printer.isPrinterConnected();
+			await printer.isPrinterConnected();
 			await printer.execute();
-			console.log(chalk.green('CONNECTED'))
+			console.log(chalk.green('CONNECTED'));
 		} catch (error) {
 			console.log(chalk.red('NOT CONNECTED'));
 			process.exit();
 		}
-
 
 		while (true) {
 			const subject = await cli.prompt(
@@ -194,8 +66,9 @@ class TaskMan extends Command {
 			);
 			console.log();
 			console.log(
-				'    ' +
+				this.prepend(
 					chalk.bold.white(subject != '' ? subject : 'Task')
+				)
 			);
 			console.log('    ' + chalk.grey('-'.repeat(lineWidth)));
 
@@ -209,7 +82,7 @@ class TaskMan extends Command {
 			} while (!this.isEndOfNote(lines));
 
 			console.log(
-				'    ' + chalk.grey('-'.repeat(lineWidth)) + '\n'
+				this.prepend(chalk.grey('-'.repeat(lineWidth)) + '\n')
 			);
 
 			// remove blank lines
@@ -325,7 +198,9 @@ class TaskMan extends Command {
 			'December',
 		][month];
 
-		return [date.getDate(), monthFmt, date.getFullYear()].join(' ');
+		return [date.getDate(), monthFmt, date.getFullYear()].join(
+			' '
+		);
 	}
 
 	formatTime(date: Date) {
@@ -333,9 +208,11 @@ class TaskMan extends Command {
 		let mins = date.getMinutes();
 
 		let hoursFmt =
-			hours === 0 ? 12 
-			: hours > 12 ? hours - 12 // convert 24 hr to 12 hr
-			: hours; // 1-11
+			hours === 0
+				? 12
+				: hours > 12
+				? hours - 12 // convert 24 hr to 12 hr
+				: hours; // 1-11
 		let AmPm = hours < 13 ? 'AM' : 'PM';
 
 		return `${this.zerofill(hoursFmt, 2)}:${this.zerofill(
