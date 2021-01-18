@@ -40,8 +40,8 @@ class TaskMan extends Command {
 	async run() {
 		console.log(`Welcome to ${chalk.bold.green('TaskMan')}!`);
 
-		const ip = '10.1.32.32';
-		const lineWidth = 41;
+		const ip = '10.1.32.32',
+			lineWidth = 41;
 
 		let printer = new nodeThermalPrinter.printer({
 			type: nodeThermalPrinter.types.EPSON, // Printer type: 'star' or 'epson'
@@ -70,7 +70,9 @@ class TaskMan extends Command {
 					chalk.bold.white(subject != '' ? subject : 'Task')
 				)
 			);
-			console.log('    ' + chalk.grey('-'.repeat(lineWidth)));
+			console.log(
+				this.prepend(chalk.grey('-'.repeat(lineWidth)))
+			);
 
 			// Gather the lines of the note.
 			const lines: string[] = [];
@@ -119,17 +121,21 @@ class TaskMan extends Command {
 					[]
 				);
 
+			// Assemble commands and feed to the printer
 			[
 				...headCommands,
 				new RuleCommand(true),
 				...bodyCommands,
 				new CutCommand(),
-			].forEach((command) => command.print(printer));
+			].forEach((command) => {
+				process.stdout.write(command.toString());
+				command.print(printer)
+			});
 
 			await printer.execute();
 
 			printer.clear();
-		}
+		} // end of while loop
 	}
 
 	tokenize(line: string): PrinterCommand[] {
@@ -204,24 +210,21 @@ class TaskMan extends Command {
 	}
 
 	formatTime(date: Date) {
-		let hours = date.getHours();
-		let mins = date.getMinutes();
+		const hours = date.getHours(),
+			mins = date.getMinutes(),
+			hoursAmPm =
+				//prettier-ignore
+				hours === 0 ? 12 // midnight hour should say 12
+				: hours > 12 ? hours - 12 // convert 24 hr to 12 hr
+				: hours, // 1-11
+			AmPm = hours < 13 ? 'AM' : 'PM',
+			hoursFmt = this.zerofill(hoursAmPm),
+			minsFmt = this.zerofill(mins);
 
-		let hoursFmt =
-			hours === 0
-				? 12
-				: hours > 12
-				? hours - 12 // convert 24 hr to 12 hr
-				: hours; // 1-11
-		let AmPm = hours < 13 ? 'AM' : 'PM';
-
-		return `${this.zerofill(hoursFmt, 2)}:${this.zerofill(
-			mins,
-			2
-		)} ${AmPm}`;
+		return `${hoursFmt}:${minsFmt} ${AmPm}`;
 	}
 
-	zerofill(str: Stringable, length: number) {
+	zerofill(str: Stringable, length: number = 2) {
 		return str.toString().padStart(length, '0');
 	}
 }
