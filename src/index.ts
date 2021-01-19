@@ -37,11 +37,20 @@ class TaskMan extends Command {
 		return `${' '.repeat(4)}${input.toString()}`;
 	}
 
+	print(input:Stringable): void {
+		process.stdout.write(input.toString());
+	}
+
+	println(input:Stringable): void {
+		process.stdout.write( input.toString() + '\n');
+	}
+
 	async run() {
-		console.log(`Welcome to ${chalk.bold.green('TaskMan')}!`);
+		this.println(`Welcome to ${chalk.bold.green('TaskMan')}!`);
 
 		const ip = '10.1.32.32',
-			lineWidth = 41;
+			lineWidth = 41,
+			rule = '-'.repeat(lineWidth);
 
 		let printer = new nodeThermalPrinter.printer({
 			type: nodeThermalPrinter.types.EPSON, // Printer type: 'star' or 'epson'
@@ -50,12 +59,12 @@ class TaskMan extends Command {
 		});
 
 		try {
-			console.log(`Connecting to ${chalk.bold.white(ip)}...`);
+			this.print(`Connecting to ${chalk.bold.white(ip)}... `);
 			await printer.isPrinterConnected();
 			await printer.execute();
-			console.log(chalk.green('CONNECTED'));
+			this.println(chalk.green('CONNECTED'));
 		} catch (error) {
-			console.log(chalk.red('NOT CONNECTED'));
+			this.println(chalk.red('NOT CONNECTED'));
 			process.exit();
 		}
 
@@ -64,14 +73,17 @@ class TaskMan extends Command {
 				chalk.bold.white('Subject'),
 				{ required: false }
 			);
-			console.log();
-			console.log(
+
+			this.println('');
+
+			this.println(
 				this.prepend(
-					chalk.bold.white(subject != '' ? subject : 'Task')
+					chalk.bold.white(subject != '' ? subject : '(no subject)')
 				)
 			);
-			console.log(
-				this.prepend(chalk.grey('-'.repeat(lineWidth)))
+
+			this.println(
+				this.prepend(chalk.grey(rule))
 			);
 
 			// Gather the lines of the note.
@@ -83,8 +95,8 @@ class TaskMan extends Command {
 				lines.push(line);
 			} while (!this.isEndOfNote(lines));
 
-			console.log(
-				this.prepend(chalk.grey('-'.repeat(lineWidth)) + '\n')
+			this.println(
+				this.prepend(chalk.grey(rule))
 			);
 
 			// remove blank lines
@@ -129,11 +141,13 @@ class TaskMan extends Command {
 				new CutCommand(),
 			].forEach((command) => {
 				process.stdout.write(command.toString());
-				command.print(printer)
+				command.print(printer);
 			});
 
+			// Send the job to the printer
 			await printer.execute();
 
+			// Clear the current printer buffer
 			printer.clear();
 		} // end of while loop
 	}
@@ -188,7 +202,6 @@ class TaskMan extends Command {
 	}
 
 	formatDate(date: Date) {
-		let month = date.getMonth();
 		let monthFmt = [
 			'January',
 			'February',
@@ -202,7 +215,7 @@ class TaskMan extends Command {
 			'October',
 			'November',
 			'December',
-		][month];
+		][date.getMonth()];
 
 		return [date.getDate(), monthFmt, date.getFullYear()].join(
 			' '
@@ -212,20 +225,39 @@ class TaskMan extends Command {
 	formatTime(date: Date) {
 		const hours = date.getHours(),
 			mins = date.getMinutes(),
-			hoursAmPm =
-				//prettier-ignore
-				hours === 0 ? 12 // midnight hour should say 12
-				: hours > 12 ? hours - 12 // convert 24 hr to 12 hr
-				: hours, // 1-11
-			AmPm = hours < 13 ? 'AM' : 'PM',
+			hoursAmPm = [
+				12, // 0, 12 => 12
+				1, // 1, 13 => 1
+				2, // 2, 14 => 2
+				3, // 3, 15 => 3
+				4, // 4, 16 => 4
+				5, // 5, 17 => 5
+				6, // 6, 18 => 6
+				7, // 7, 19 => 7
+				8, // 8, 20 => 8
+				9, // 9, 21 => 9
+				10, // 10, 22 => 10
+				11, // 11, 23 => 11
+			][hours % 12],
+			// AM is 0-11, PM is 12-23
+			amPm = hours < 12 ? 'AM' : 'PM',
 			hoursFmt = this.zerofill(hoursAmPm),
 			minsFmt = this.zerofill(mins);
 
-		return `${hoursFmt}:${minsFmt} ${AmPm}`;
+		return `${hoursFmt}:${minsFmt} ${amPm}`;
 	}
 
-	zerofill(str: Stringable, length: number = 2) {
-		return str.toString().padStart(length, '0');
+	zerofill(
+		str: Stringable,
+		length: number = 2,
+		char: string = '0'
+	) {
+		if (char.length !== 1) {
+			throw new Error(
+				`Expected char to be a single character; provided '${char}'`
+			);
+		}
+		return str.toString().padStart(length, char);
 	}
 }
 
